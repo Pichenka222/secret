@@ -572,7 +572,7 @@ main();
 ```javascript
 const { createUser } = require('./database/services/user.service');
 
-async function safeCrateUser(data) {
+async function safeCreateUser(data) {
   try {
     const user = await createUser(data);
     return { success: true, user };
