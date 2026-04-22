@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Secret DB — Схема базы данных</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f1117;--surface:#1a1d27;--surface2:#222636;--border:#2e3348;
+  --accent:#4f8ef7;--accent2:#7c5cbf;--green:#22c55e;--red:#ef4444;
+  --yellow:#f59e0b;--text:#e2e8f0;--muted:#8892a4;
+}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;font-size:14px;min-height:100vh;padding:40px 20px;}
+h1{text-align:center;font-size:28px;font-weight:800;margin-bottom:6px;}
+h1 span{color:var(--accent)}
+.subtitle{text-align:center;color:var(--muted);font-size:14px;margin-bottom:40px}
+.subtitle a{color:var(--accent);text-decoration:none}
+.subtitle a:hover{text-decoration:underline}
+
+/* Main layout */
+.diagram{display:flex;flex-direction:column;align-items:center;gap:0;max-width:900px;margin:0 auto}
+
+/* Collection box */
+.collection{
+  background:var(--surface);border:2px solid var(--accent);border-radius:14px;
+  width:100%;overflow:hidden;box-shadow:0 8px 40px rgba(79,142,247,.15);
+}
+.collection-header{
+  background:linear-gradient(90deg,var(--accent),var(--accent2));
+  padding:14px 20px;display:flex;align-items:center;gap:12px;
+}
+.collection-header .icon{font-size:22px}
+.collection-header .title{font-size:17px;font-weight:700;color:#fff}
+.collection-header .subtitle2{font-size:12px;color:rgba(255,255,255,.75);margin-left:auto}
+
+.fields-grid{display:grid;grid-template-columns:1fr 1fr 1fr;border-top:1px solid var(--border)}
+.group{border-right:1px solid var(--border)}
+.group:last-child{border-right:none}
+.group-header{
+  background:var(--surface2);padding:10px 16px;font-size:11px;font-weight:700;
+  color:var(--muted);text-transform:uppercase;letter-spacing:.6px;border-bottom:1px solid var(--border)
+}
+.field{
+  display:flex;align-items:flex-start;gap:10px;padding:9px 16px;
+  border-bottom:1px solid var(--border);transition:background .15s;
+}
+.field:last-child{border-bottom:none}
+.field:hover{background:var(--surface2)}
+.field-key{
+  width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:4px;
+}
+.pk{background:var(--yellow)}
+.uk{background:var(--green)}
+.idx{background:var(--accent)}
+.req{background:var(--red)}
+.opt{background:var(--muted)}
+.field-name{font-weight:600;font-size:13px;white-space:nowrap}
+.field-type{font-size:11px;color:var(--muted);margin-top:2px}
+.field-note{font-size:10px;color:var(--accent2);margin-top:2px}
+
+/* Nested schema */
+.nested{
+  margin:0 16px 12px;background:var(--surface2);border:1px solid var(--border);
+  border-radius:8px;overflow:hidden;
+}
+.nested-header{
+  padding:8px 14px;font-size:11px;font-weight:700;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);
+  background:var(--bg)
+}
+.nested .field{padding:7px 14px}
+
+/* Arrow connectors */
+.connector{display:flex;justify-content:center;align-items:center;height:50px;position:relative}
+.connector::before{content:'';position:absolute;left:50%;top:0;bottom:0;width:2px;background:var(--border)}
+.connector-label{
+  background:var(--surface2);border:1px solid var(--border);border-radius:20px;
+  padding:4px 14px;font-size:11px;color:var(--muted);z-index:1;position:relative
+}
+
+/* Legend */
+.legend{
+  display:flex;flex-wrap:wrap;gap:14px;justify-content:center;margin-top:36px;
+  background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 20px
+}
+.legend-item{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted)}
+.legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+
+/* Indexes table */
+.indexes{
+  background:var(--surface);border:1px solid var(--border);border-radius:14px;
+  overflow:hidden;margin-top:32px;width:100%;
+}
+.indexes-header{
+  background:var(--surface2);padding:12px 20px;font-size:13px;font-weight:700;
+  border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px
+}
+.idx-table{width:100%;border-collapse:collapse}
+.idx-table th{padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;background:var(--surface2);border-bottom:1px solid var(--border)}
+.idx-table td{padding:9px 16px;border-bottom:1px solid var(--border);font-size:13px}
+.idx-table tr:last-child td{border-bottom:none}
+.idx-table tr:hover td{background:var(--surface2)}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600}
+.badge-u{background:rgba(34,197,94,.15);color:#4ade80}
+.badge-c{background:rgba(79,142,247,.15);color:#93c5fd}
+
+/* Virtuals */
+.virtuals{
+  background:var(--surface);border:1px solid var(--border);border-radius:14px;
+  overflow:hidden;margin-top:20px;width:100%;
+}
+.virtual-item{display:flex;align-items:flex-start;gap:12px;padding:12px 20px;border-bottom:1px solid var(--border)}
+.virtual-item:last-child{border-bottom:none}
+.virtual-name{font-weight:600;color:var(--accent2);font-size:13px;min-width:120px}
+.virtual-desc{color:var(--muted);font-size:12px;line-height:1.5}
+
+/* Hooks */
+.hooks{
+  background:var(--surface);border:1px solid var(--border);border-radius:14px;
+  overflow:hidden;margin-top:20px;width:100%;
+}
+.hook-item{display:flex;align-items:flex-start;gap:12px;padding:12px 20px;border-bottom:1px solid var(--border)}
+.hook-item:last-child{border-bottom:none}
+.hook-event{
+  background:rgba(245,158,11,.15);color:var(--yellow);font-size:11px;font-weight:700;
+  border-radius:6px;padding:3px 8px;white-space:nowrap;flex-shrink:0
+}
+.hook-desc{color:var(--muted);font-size:12px;line-height:1.5}
+
+/* CTA links */
+.links-row{display:flex;gap:14px;justify-content:center;margin-top:36px;flex-wrap:wrap}
+.link-btn{
+  display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:10px;
+  text-decoration:none;font-size:13px;font-weight:600;transition:all .18s;
+}
+.link-primary{background:var(--accent);color:#fff}
+.link-primary:hover{background:#3a7de8}
+.link-ghost{background:var(--surface);border:1px solid var(--border);color:var(--text)}
+.link-ghost:hover{border-color:var(--accent);color:var(--accent)}
+
+@media(max-width:700px){
+  .fields-grid{grid-template-columns:1fr}
+  .group{border-right:none;border-bottom:1px solid var(--border)}
+}
+</style>
+</head>
+<body>
+
+<h1>🗄️ Secret <span>DB</span> — Схема базы данных</h1>
+<p class="subtitle">MongoDB · Mongoose ODM · Коллекция <code style="color:var(--accent)">users</code> · <a href="index.html">← Открыть CRM дашборд</a></p>
+
+<div class="diagram">
+
+  <!-- COLLECTION: users -->
+  <div class="collection">
+    <div class="collection-header">
+      <span class="icon">📦</span>
+      <div>
+        <div class="title">Collection: users</div>
+        <div style="font-size:11px;color:rgba(255,255,255,.7);margin-top:2px">MongoDB · Mongoose Schema · timestamps: true · versionKey: false</div>
+      </div>
+      <div class="subtitle2">~47 документов (мок)</div>
+    </div>
+
+    <div class="fields-grid">
+
+      <!-- GROUP 1: Identification -->
+      <div class="group">
+        <div class="group-header">🔑 Идентификация</div>
+        <div class="field">
+          <div class="field-key pk" title="Primary key"></div>
+          <div>
+            <div class="field-name">_id</div>
+            <div class="field-type">ObjectId</div>
+            <div class="field-note">Auto-generated · PK</div>
+          </div>
+        </div>
+        <div class="field">
+          <div class="field-key uk" title="Unique index"></div>
+          <div>
+            <div class="field-name">username</div>
+            <div class="field-type">String</div>
+            <div class="field-note">required · unique · 3–50 chars · /^[a-zA-Z0-9_]+$/</div>
+          </div>
+        </div>
+        <div class="field">
+          <div class="field-key uk" title="Unique index"></div>
+          <div>
+            <div class="field-name">email</div>
+            <div class="field-type">String</div>
+            <div class="field-note">required · unique · lowercase · email format</div>
+          </div>
+        </div>
+        <div class="field">
+          <div class="field-key req" title="Required"></div>
+          <div>
+            <div class="field-name">password</div>
+            <div class="field-type">String (hash)</div>
+            <div class="field-note">required · min 8 · select: false · bcrypt×12</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- GROUP 2: Personal Data -->
+      <div class="group">
+        <div class="group-header">👤 Персональные данные</div>
+        <div class="field">
+          <div class="field-key idx" title="Index"></div>
+          <div>
+            <div class="field-name">firstName</div>
+            <div class="field-type">String</div>
+            <div class="field-note">max 100 chars · compound idx</div>
+          </div>
+        </div>
+        <div class="field">
+          <div class="field-key idx" title="Index"></div>
+          <div>
+            <div class="field-name">lastName</div>
+            <div class="field-type">String</div>
+            <div class="field-note">max 100 chars · compound idx</div>
+          </div>
+        </div>
+        <div class="field">
+          <div class="field-key opt"></div>
+          <div>
+            <div class="field-name">middleName</div>
+            <div class="field-type">String</div>
+            <div class="field-note">max 100 chars</div>
+          </div>
+        </div>
+        <div class="field">
+          <div class="field-key opt"></div>
+          <div>
+            <div class="field-name">dateOfBirth</div>
+            <div class="field-type">Date</div>
+            <div class="field-note">используется виртуальным age</div>
+          </div>
+        </div>
+        <div class="field">
+          <div class="field-key opt"></div>
+          <div>
+            <div class="field-name">phone</div>
+            <div class="field-type">String</div>
+            <div class="field-note">7–20 символов · формат +7-...</div>
+          </div>
+        </div>
+        <div class="field">
+          <div class="field-key opt"></div>
+          <div>
+            <div class="field-name">avatar</div>
+            <div class="field-type">String (URL)</div>
+            <div class="field-note">необязательное</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- GROUP 3: System Fields -->
+      <div class="group">
+        <div class="group-header">⚙️ Системные поля</div>
+        <div class="field">
+          <div class="field-key idx" title="Index"></div>
+          <div>
+            <div class="field-name">role</div>
+            <div class="field-type">String (enum)</div>
+            <div class="field-note">user | moderator | admin · default: user</div>
+          </div>
+        </div>
+        <div class="field">
+          <div class="field-key idx" title="Index"></div>
+          <div>
+            <div class="field-name">isActive</div>
+            <div class="field-type">Boolean</div>
+            <div class="field-note">default: true · index</div>
+          </div>
+        </div>
+        <div class="field">
+          <div class="field-key opt"></div>
+          <div>
+            <div class="field-name">isEmailVerified</div>
+            <div class="field-type">Boolean</div>
+            <div class="field-note">default: false</div>
+          </div>
+        </div>
+        <div class="field">
+          <div class="field-key opt"></div>
+          <div>
+            <div class="field-name">lastLogin</div>
+            <div class="field-type">Date</div>
+            <div class="field-note">обновляется при входе</div>
+          </div>
+        </div>
+        <div class="field">
+          <div class="field-key idx" title="Index"></div>
+          <div>
+            <div class="field-name">createdAt</div>
+            <div class="field-type">Date</div>
+            <div class="field-note">auto · timestamps · index DESC</div>
+          </div>
+        </div>
+        <div class="field">
+          <div class="field-key opt"></div>
+          <div>
+            <div class="field-name">updatedAt</div>
+            <div class="field-type">Date</div>
+            <div class="field-note">auto · timestamps</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Nested: address -->
+    <div style="padding:12px 0 4px">
+      <div style="padding:0 16px 8px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px">📍 Embedded Document: address <span style="color:var(--muted);font-weight:400">(_id: false)</span></div>
+      <div class="nested">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr)">
+          <div class="field"><div class="field-key opt"></div><div><div class="field-name">country</div><div class="field-type">String</div></div></div>
+          <div class="field"><div class="field-key opt"></div><div><div class="field-name">city</div><div class="field-type">String</div></div></div>
+          <div class="field"><div class="field-key opt"></div><div><div class="field-name">street</div><div class="field-type">String</div></div></div>
+          <div class="field"><div class="field-key opt"></div><div><div class="field-name">building</div><div class="field-type">String</div></div></div>
+          <div class="field"><div class="field-key opt"></div><div><div class="field-name">apartment</div><div class="field-type">String</div></div></div>
+          <div class="field"><div class="field-key opt"></div><div><div class="field-name">postalCode</div><div class="field-type">String</div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- INDEXES TABLE -->
+  <div class="indexes">
+    <div class="indexes-header">📊 Индексы</div>
+    <table class="idx-table">
+      <thead><tr><th>Поле(я)</th><th>Тип</th><th>Порядок</th><th>Назначение</th></tr></thead>
+      <tbody>
+        <tr><td><code>email</code></td><td><span class="badge badge-u">Unique</span></td><td>ASC</td><td>Быстрый поиск по email, уникальность</td></tr>
+        <tr><td><code>username</code></td><td><span class="badge badge-u">Unique</span></td><td>ASC</td><td>Быстрый поиск по username, уникальность</td></tr>
+        <tr><td><code>role</code></td><td><span class="badge badge-c">Compound</span></td><td>ASC</td><td>Фильтрация по роли пользователя</td></tr>
+        <tr><td><code>isActive</code></td><td><span class="badge badge-c">Compound</span></td><td>ASC</td><td>Фильтрация активных пользователей</td></tr>
+        <tr><td><code>lastName, firstName</code></td><td><span class="badge badge-c">Compound</span></td><td>ASC</td><td>Сортировка и поиск по ФИО</td></tr>
+        <tr><td><code>createdAt</code></td><td><span class="badge badge-c">Compound</span></td><td>DESC</td><td>Сортировка по дате регистрации</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- VIRTUALS -->
+  <div class="virtuals">
+    <div class="indexes-header">✨ Виртуальные поля (не хранятся в БД)</div>
+    <div class="virtual-item">
+      <div class="virtual-name">fullName</div>
+      <div class="virtual-desc">Возвращает <code>lastName + firstName + middleName</code> через пробел. Если ФИО не заполнено — возвращает <code>username</code>. Доступен через <code>.toJSON()</code> и <code>.toObject()</code>.</div>
+    </div>
+    <div class="virtual-item">
+      <div class="virtual-name">age</div>
+      <div class="virtual-desc">Вычисляет возраст в годах на основе <code>dateOfBirth</code>. Возвращает <code>null</code> если дата рождения не указана. Учитывает прошёл ли день рождения в текущем году.</div>
+    </div>
+  </div>
+
+  <!-- HOOKS -->
+  <div class="hooks">
+    <div class="indexes-header">🔩 Middleware (Mongoose Hooks)</div>
+    <div class="hook-item">
+      <div class="hook-event">pre('save')</div>
+      <div class="hook-desc">Хеширует пароль с помощью <strong>bcrypt</strong> (saltRounds=12) перед каждым сохранением. Запускается только если поле <code>password</code> было изменено (<code>isModified</code> check).</div>
+    </div>
+    <div class="hook-item">
+      <div class="hook-event">pre('findOneAndUpdate')</div>
+      <div class="hook-desc">Автоматически хеширует пароль при обновлении через <code>findOneAndUpdate</code>, если поле <code>password</code> присутствует в объекте обновления.</div>
+    </div>
+    <div class="hook-item">
+      <div class="hook-event">methods.comparePassword</div>
+      <div class="hook-desc">Метод экземпляра: сравнивает открытый пароль с сохранённым хешем через <code>bcrypt.compare()</code>. Используется при аутентификации.</div>
+    </div>
+  </div>
+
+</div><!-- /diagram -->
+
+<!-- Legend -->
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:var(--yellow)"></div>Primary Key (_id)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>Unique Index</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div>Index</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div>Required Field</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--muted)"></div>Optional Field</div>
+</div>
+
+<!-- CTA Links -->
+<div class="links-row">
+  <a class="link-btn link-primary" href="index.html">🖥️ Открыть CRM дашборд</a>
+  <a class="link-btn link-ghost" href="https://github.com/Pichenka222/secret/blob/copilot/create-readme-for-mongodb-users-db/database/models/user.model.js" target="_blank">📄 Исходный код модели</a>
+  <a class="link-btn link-ghost" href="https://github.com/Pichenka222/secret/pull/1" target="_blank">🔗 Pull Request #1</a>
+</div>
+
+<p style="text-align:center;color:var(--muted);font-size:12px;margin-top:24px;margin-bottom:10px">
+  Secret CRM · MongoDB User Schema · Mongoose ODM
+</p>
+
+</body>
+</html>
