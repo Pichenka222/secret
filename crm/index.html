@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Secret CRM — User Management</title>
+<style>
+/* ── Reset & tokens ─────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:       #0f1117;
+  --surface:  #1a1d27;
+  --surface2: #222636;
+  --border:   #2e3348;
+  --accent:   #4f8ef7;
+  --accent2:  #7c5cbf;
+  --green:    #22c55e;
+  --red:      #ef4444;
+  --yellow:   #f59e0b;
+  --text:     #e2e8f0;
+  --muted:    #8892a4;
+  --radius:   12px;
+  --shadow:   0 4px 24px rgba(0,0,0,.4);
+}
+body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; min-height: 100vh; display: flex; }
+
+/* ── Sidebar ─────────────────────────────────────────────────── */
+.sidebar {
+  width: 220px; min-height: 100vh; background: var(--surface);
+  border-right: 1px solid var(--border); display: flex; flex-direction: column;
+  position: fixed; top: 0; left: 0; z-index: 100;
+}
+.sidebar-logo {
+  padding: 20px 20px 16px;
+  font-size: 20px; font-weight: 700; color: var(--accent);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px;
+}
+.sidebar-logo span { font-size: 24px; }
+.sidebar-nav { padding: 12px 10px; flex: 1; }
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 8px; cursor: pointer;
+  color: var(--muted); transition: all .18s; margin-bottom: 2px;
+  font-size: 14px;
+}
+.nav-item:hover, .nav-item.active { background: var(--surface2); color: var(--text); }
+.nav-item.active { color: var(--accent); }
+.nav-item .ico { font-size: 18px; width: 22px; text-align: center; }
+.sidebar-footer { padding: 16px; border-top: 1px solid var(--border); }
+.sidebar-user { display: flex; align-items: center; gap: 10px; }
+.avatar-sm { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg,var(--accent),var(--accent2)); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; flex-shrink: 0; }
+
+/* ── Main ────────────────────────────────────────────────────── */
+.main { margin-left: 220px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+
+/* ── Topbar ──────────────────────────────────────────────────── */
+.topbar {
+  height: 60px; background: var(--surface); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 28px; position: sticky; top: 0; z-index: 50;
+}
+.topbar-title { font-size: 18px; font-weight: 600; }
+.topbar-right { display: flex; align-items: center; gap: 14px; }
+.search-box {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 7px 12px; width: 260px;
+}
+.search-box input { background: none; border: none; outline: none; color: var(--text); font-size: 13px; width: 100%; }
+.search-box input::placeholder { color: var(--muted); }
+.btn {
+  padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer;
+  font-size: 13px; font-weight: 600; transition: all .18s; display: inline-flex; align-items: center; gap: 6px;
+}
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: #3a7de8; }
+.btn-ghost { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+.btn-ghost:hover { background: var(--border); }
+.btn-danger { background: var(--red); color: #fff; }
+.btn-danger:hover { background: #dc2626; }
+.btn-sm { padding: 5px 10px; font-size: 12px; }
+
+/* ── Content ─────────────────────────────────────────────────── */
+.content { padding: 28px; flex: 1; }
+
+/* ── Stat cards ──────────────────────────────────────────────── */
+.stats-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; margin-bottom: 28px; }
+.stat-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 20px; display: flex; align-items: center; gap: 16px;
+}
+.stat-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+.stat-icon.blue  { background: rgba(79,142,247,.15); }
+.stat-icon.green { background: rgba(34,197,94,.15); }
+.stat-icon.purple{ background: rgba(124,92,191,.15); }
+.stat-icon.yellow{ background: rgba(245,158,11,.15); }
+.stat-info { flex: 1; }
+.stat-value { font-size: 28px; font-weight: 700; line-height: 1; }
+.stat-label { color: var(--muted); font-size: 12px; margin-top: 4px; }
+.stat-delta { font-size: 11px; margin-top: 6px; }
+.stat-delta.up { color: var(--green); }
+.stat-delta.down { color: var(--red); }
+
+/* ── Charts row ──────────────────────────────────────────────── */
+.charts-row { display: grid; grid-template-columns: 1fr 340px; gap: 16px; margin-bottom: 28px; }
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 20px;
+}
+.card-title { font-size: 15px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; }
+.card-title span { color: var(--muted); font-size: 12px; font-weight: 400; }
+
+/* Bar chart */
+.bar-chart { display: flex; align-items: flex-end; gap: 6px; height: 140px; }
+.bar-col { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; }
+.bar { width: 100%; border-radius: 6px 6px 0 0; transition: opacity .2s; cursor: default; min-height: 4px; }
+.bar:hover { opacity: .8; }
+.bar-label { font-size: 10px; color: var(--muted); }
+
+/* Donut chart */
+.donut-wrap { display: flex; align-items: center; gap: 20px; }
+.donut-svg { flex-shrink: 0; }
+.donut-legend { display: flex; flex-direction: column; gap: 10px; }
+.legend-item { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+/* ── Table section ───────────────────────────────────────────── */
+.table-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.filter-tabs { display: flex; gap: 6px; }
+.tab-btn {
+  padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border);
+  background: transparent; color: var(--muted); cursor: pointer; font-size: 12px; transition: all .18s;
+}
+.tab-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.tab-btn:hover:not(.active) { border-color: var(--accent); color: var(--text); }
+
+.table-wrap { overflow-x: auto; border-radius: var(--radius); border: 1px solid var(--border); }
+table { width: 100%; border-collapse: collapse; }
+thead { background: var(--surface2); }
+th { padding: 12px 16px; text-align: left; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); white-space: nowrap; }
+td { padding: 13px 16px; border-top: 1px solid var(--border); vertical-align: middle; }
+tr:hover td { background: var(--surface2); }
+.user-cell { display: flex; align-items: center; gap: 10px; }
+.avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg,var(--accent),var(--accent2)); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; flex-shrink: 0; }
+.user-name { font-weight: 600; font-size: 13px; }
+.user-email { color: var(--muted); font-size: 12px; }
+.badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+.badge-admin   { background: rgba(124,92,191,.2); color: #a78bfa; }
+.badge-mod     { background: rgba(245,158,11,.2); color: #fbbf24; }
+.badge-user    { background: rgba(79,142,247,.2);  color: #93c5fd; }
+.badge-active  { background: rgba(34,197,94,.15);  color: #4ade80; }
+.badge-inactive{ background: rgba(239,68,68,.15);  color: #f87171; }
+.actions { display: flex; gap: 6px; }
+.icon-btn {
+  width: 30px; height: 30px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--surface2); cursor: pointer; display: flex; align-items: center; justify-content: center;
+  font-size: 14px; transition: all .18s; color: var(--muted);
+}
+.icon-btn:hover { border-color: var(--accent); color: var(--accent); }
+.icon-btn.del:hover { border-color: var(--red); color: var(--red); }
+
+/* ── Pagination ──────────────────────────────────────────────── */
+.pagination { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-top: 1px solid var(--border); }
+.page-info { color: var(--muted); font-size: 12px; }
+.page-btns { display: flex; gap: 6px; }
+.page-btn {
+  width: 30px; height: 30px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--surface2); cursor: pointer; display: flex; align-items: center; justify-content: center;
+  font-size: 12px; transition: all .18s; color: var(--text);
+}
+.page-btn:hover, .page-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.page-btn:disabled { opacity: .4; cursor: default; pointer-events: none; }
+
+/* ── Modal ───────────────────────────────────────────────────── */
+.overlay {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 200;
+  align-items: center; justify-content: center;
+}
+.overlay.show { display: flex; }
+.modal {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+  width: 560px; max-height: 90vh; overflow-y: auto; padding: 28px;
+  box-shadow: var(--shadow);
+}
+.modal-title { font-size: 18px; font-weight: 700; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; }
+.close-btn { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 20px; line-height: 1; }
+.close-btn:hover { color: var(--text); }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.form-group { display: flex; flex-direction: column; gap: 5px; }
+.form-group.full { grid-column: 1/-1; }
+label { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+input, select, textarea {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 9px 12px; color: var(--text); font-size: 13px; outline: none; width: 100%;
+  transition: border-color .18s;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+select option { background: var(--surface2); }
+.form-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+/* ── Profile drawer ──────────────────────────────────────────── */
+.drawer {
+  position: fixed; top: 0; right: -400px; width: 380px; height: 100vh;
+  background: var(--surface); border-left: 1px solid var(--border);
+  z-index: 150; transition: right .3s ease; overflow-y: auto; padding: 24px;
+}
+.drawer.open { right: 0; }
+.drawer-close { position: absolute; top: 16px; right: 16px; background: none; border: none; cursor: pointer; color: var(--muted); font-size: 22px; }
+.drawer-close:hover { color: var(--text); }
+.profile-avatar { width: 72px; height: 72px; border-radius: 50%; background: linear-gradient(135deg,var(--accent),var(--accent2)); display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 700; margin: 0 auto 14px; }
+.profile-name { text-align: center; font-size: 18px; font-weight: 700; }
+.profile-email { text-align: center; color: var(--muted); font-size: 13px; margin-top: 4px; }
+.profile-badges { display: flex; gap: 8px; justify-content: center; margin: 10px 0 20px; }
+.profile-section { margin-top: 20px; }
+.profile-section-title { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 10px; }
+.profile-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.profile-row:last-child { border-bottom: none; }
+.profile-row .key { color: var(--muted); }
+
+/* ── Toast ───────────────────────────────────────────────────── */
+.toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
+.toast {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  padding: 12px 18px; display: flex; align-items: center; gap: 10px; font-size: 13px;
+  box-shadow: var(--shadow); animation: slideIn .3s ease;
+  min-width: 260px;
+}
+.toast.success { border-left: 4px solid var(--green); }
+.toast.error   { border-left: 4px solid var(--red); }
+@keyframes slideIn { from { transform: translateX(80px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* ── Scrollbar ───────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+</style>
+</head>
+<body>
+
+<!-- ══════════ SIDEBAR ══════════ -->
+<aside class="sidebar">
+  <div class="sidebar-logo"><span>🔐</span> Secret CRM</div>
+  <nav class="sidebar-nav">
+    <div class="nav-item active" data-view="dashboard"><span class="ico">📊</span> Дашборд</div>
+    <div class="nav-item" data-view="users"><span class="ico">👥</span> Пользователи</div>
+    <div class="nav-item" data-view="analytics"><span class="ico">📈</span> Аналитика</div>
+    <div class="nav-item" data-view="settings"><span class="ico">⚙️</span> Настройки</div>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="sidebar-user">
+      <div class="avatar-sm">A</div>
+      <div>
+        <div style="font-size:13px;font-weight:600">Admin</div>
+        <div style="font-size:11px;color:var(--muted)">admin@secret.app</div>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- ══════════ MAIN ══════════ -->
+<div class="main">
+
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <div class="topbar-title" id="viewTitle">📊 Дашборд</div>
+    <div class="topbar-right">
+      <div class="search-box">
+        <span style="color:var(--muted)">🔍</span>
+        <input type="text" id="globalSearch" placeholder="Поиск пользователей..." />
+      </div>
+      <button class="btn btn-primary" onclick="openAddModal()">＋ Добавить</button>
+    </div>
+  </header>
+
+  <!-- CONTENT -->
+  <div class="content" id="content">
+
+    <!-- ── DASHBOARD VIEW ── -->
+    <div id="view-dashboard">
+      <!-- Stats -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon blue">👥</div>
+          <div class="stat-info">
+            <div class="stat-value" id="st-total">0</div>
+            <div class="stat-label">Всего пользователей</div>
+            <div class="stat-delta up" id="st-total-d"></div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon green">✅</div>
+          <div class="stat-info">
+            <div class="stat-value" id="st-active">0</div>
+            <div class="stat-label">Активных</div>
+            <div class="stat-delta up" id="st-active-d"></div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon purple">🛡️</div>
+          <div class="stat-info">
+            <div class="stat-value" id="st-admins">0</div>
+            <div class="stat-label">Администраторов</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon yellow">📧</div>
+          <div class="stat-info">
+            <div class="stat-value" id="st-verified">0</div>
+            <div class="stat-label">Email подтверждён</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts -->
+      <div class="charts-row">
+        <div class="card">
+          <div class="card-title">Регистрации по месяцам <span>последние 6 мес.</span></div>
+          <div class="bar-chart" id="barChart"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Роли пользователей</div>
+          <div class="donut-wrap">
+            <svg class="donut-svg" width="120" height="120" viewBox="0 0 120 120" id="donutSvg"></svg>
+            <div class="donut-legend" id="donutLegend"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent users (first 5) -->
+      <div class="card">
+        <div class="card-title">Последние регистрации <span><a href="#" onclick="switchView('users');return false;" style="color:var(--accent);text-decoration:none">Все →</a></span></div>
+        <div class="table-wrap" style="border:none">
+          <table id="recentTable"></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── USERS VIEW ── -->
+    <div id="view-users" style="display:none">
+      <div class="table-header">
+        <div class="filter-tabs">
+          <button class="tab-btn active" onclick="setFilter('all',this)">Все</button>
+          <button class="tab-btn" onclick="setFilter('active',this)">Активные</button>
+          <button class="tab-btn" onclick="setFilter('inactive',this)">Неактивные</button>
+          <button class="tab-btn" onclick="setFilter('admin',this)">Админы</button>
+          <button class="tab-btn" onclick="setFilter('moderator',this)">Модераторы</button>
+        </div>
+        <div style="display:flex;gap:8px">
+          <select id="sortSelect" onchange="renderTable()" style="width:160px">
+            <option value="createdAt-desc">Дата ↓</option>
+            <option value="createdAt-asc">Дата ↑</option>
+            <option value="lastName-asc">Имя A→Z</option>
+            <option value="lastName-desc">Имя Z→A</option>
+          </select>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table id="mainTable">
+          <thead>
+            <tr>
+              <th>Пользователь</th>
+              <th>Роль</th>
+              <th>Статус</th>
+              <th>Телефон</th>
+              <th>Город</th>
+              <th>Последний вход</th>
+              <th>Дата регистрации</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="mainTbody"></tbody>
+        </table>
+        <div class="pagination">
+          <div class="page-info" id="pageInfo"></div>
+          <div class="page-btns" id="pageBtns"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── ANALYTICS VIEW ── -->
+    <div id="view-analytics" style="display:none">
+      <div class="stats-grid" style="grid-template-columns:repeat(3,1fr)">
+        <div class="stat-card">
+          <div class="stat-icon blue">🌍</div>
+          <div class="stat-info">
+            <div class="stat-value" id="an-cities">0</div>
+            <div class="stat-label">Уникальных городов</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon green">🗓️</div>
+          <div class="stat-info">
+            <div class="stat-value" id="an-thismonth">0</div>
+            <div class="stat-label">Зарегистрировано в этом месяце</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon yellow">📊</div>
+          <div class="stat-info">
+            <div class="stat-value" id="an-avgage">0</div>
+            <div class="stat-label">Средний возраст</div>
+          </div>
+        </div>
+      </div>
+      <div class="charts-row" style="grid-template-columns:1fr 1fr">
+        <div class="card">
+          <div class="card-title">Пользователи по городам</div>
+          <div id="cityBars"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Email верификация</div>
+          <div class="donut-wrap">
+            <svg width="120" height="120" viewBox="0 0 120 120" id="emailDonut"></svg>
+            <div id="emailLegend" class="donut-legend"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SETTINGS VIEW ── -->
+    <div id="view-settings" style="display:none">
+      <div class="card" style="max-width:560px">
+        <div class="card-title">Настройки CRM</div>
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div class="form-group">
+            <label>Записей на странице</label>
+            <select id="perPageSetting" onchange="PER_PAGE=+this.value;currentPage=1;renderTable()">
+              <option value="5">5</option>
+              <option value="10" selected>10</option>
+              <option value="20">20</option>
+              <option value="50">50</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Акцентный цвет</label>
+            <input type="color" value="#4f8ef7" oninput="document.documentElement.style.setProperty('--accent',this.value)" style="height:40px;cursor:pointer" />
+          </div>
+          <p style="color:var(--muted);font-size:13px">Данные хранятся локально (мок). Реальная интеграция — через <code style="color:var(--accent)">database/services/user.service.js</code></p>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<!-- ══════════ ADD/EDIT MODAL ══════════ -->
+<div class="overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-title">
+      <span id="modalTitle">Новый пользователь</span>
+      <button class="close-btn" onclick="closeModal()">×</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group"><label>Имя</label><input id="f-firstName" placeholder="Иван" /></div>
+      <div class="form-group"><label>Фамилия</label><input id="f-lastName" placeholder="Петров" /></div>
+      <div class="form-group"><label>Отчество</label><input id="f-middleName" placeholder="Сергеевич" /></div>
+      <div class="form-group"><label>Username *</label><input id="f-username" placeholder="ivan_petrov" /></div>
+      <div class="form-group full"><label>Email *</label><input id="f-email" type="email" placeholder="ivan@example.com" /></div>
+      <div class="form-group"><label>Пароль *</label><input id="f-password" type="password" placeholder="••••••••" /></div>
+      <div class="form-group"><label>Телефон</label><input id="f-phone" placeholder="+7-999-000-00-00" /></div>
+      <div class="form-group"><label>Дата рождения</label><input id="f-dob" type="date" /></div>
+      <div class="form-group"><label>Роль</label>
+        <select id="f-role">
+          <option value="user">Пользователь</option>
+          <option value="moderator">Модератор</option>
+          <option value="admin">Администратор</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Статус</label>
+        <select id="f-isActive">
+          <option value="true">Активен</option>
+          <option value="false">Неактивен</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Страна</label><input id="f-country" placeholder="Россия" /></div>
+      <div class="form-group"><label>Город</label><input id="f-city" placeholder="Москва" /></div>
+      <div class="form-group"><label>Улица</label><input id="f-street" placeholder="Арбат" /></div>
+      <div class="form-group"><label>Дом / Квартира</label><input id="f-building" placeholder="10/5" /></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Отмена</button>
+      <button class="btn btn-primary" onclick="saveUser()">💾 Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ PROFILE DRAWER ══════════ -->
+<div class="drawer" id="profileDrawer">
+  <button class="drawer-close" onclick="closeDrawer()">×</button>
+  <div id="drawerContent"></div>
+</div>
+
+<!-- ══════════ TOASTS ══════════ -->
+<div class="toast-container" id="toasts"></div>
+
+<script>
+// ── Mock data ─────────────────────────────────────────────────
+const CITIES = ['Москва','Санкт-Петербург','Казань','Новосибирск','Екатеринбург','Самара','Тюмень','Уфа','',''];
+const COUNTRIES = ['Россия','Россия','Россия','Россия','Казахстан','Беларусь',''];
+const ROLES = ['user','user','user','user','user','user','moderator','moderator','admin'];
+
+function rnd(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+function rndInt(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
+function genId(){ return Math.random().toString(36).slice(2,10); }
+function genDate(daysAgo){ const d=new Date(); d.setDate(d.getDate()-rndInt(0,daysAgo)); return d; }
+
+const FIRST_NAMES = ['Иван','Алексей','Мария','Елена','Дмитрий','Ольга','Сергей','Наталья','Андрей','Юлия',
+  'Михаил','Светлана','Павел','Ирина','Артём','Татьяна','Николай','Анна','Виктор','Ксения'];
+const LAST_NAMES  = ['Иванов','Петров','Сидоров','Козлов','Новиков','Морозов','Волков','Соколов','Лебедев','Попов',
+  'Смирнов','Кузнецов','Орлов','Фёдоров','Михайлов','Захаров','Романов','Зайцев','Борисов','Яковлев'];
+
+function genUser(i){
+  const fn = rnd(FIRST_NAMES), ln = rnd(LAST_NAMES);
+  const role = rnd(ROLES);
+  const city = rnd(CITIES);
+  const country = city ? 'Россия' : rnd(COUNTRIES);
+  return {
+    _id: genId(),
+    username: (ln + '_' + rndInt(10,999)).toLowerCase(),
+    email: (fn + '.' + ln + rndInt(1,99) + '@example.com').toLowerCase(),
+    firstName: fn, lastName: ln,
+    middleName: Math.random()>.5 ? rnd(['ович','овна','евна','евич'].map(s=>fn.slice(0,3)+s)) : '',
+    dateOfBirth: new Date(rndInt(1975,2000), rndInt(0,11), rndInt(1,28)),
+    phone: '+7-' + rndInt(900,999) + '-' + rndInt(100,999) + '-' + rndInt(10,99) + '-' + rndInt(10,99),
+    address: { country, city, street: rnd(['Ленина','Мира','Советская','Пушкина','Гагарина']), building: String(rndInt(1,100)) },
+    role, isActive: Math.random()>.15, isEmailVerified: Math.random()>.4,
+    lastLogin: Math.random()>.2 ? genDate(30) : null,
+    createdAt: genDate(180), updatedAt: new Date(),
+  };
+}
+
+let users = Array.from({length: 47}, (_,i) => genUser(i));
+let currentPage = 1;
+let PER_PAGE = 10;
+let currentFilter = 'all';
+let currentSearch = '';
+let editingId = null;
+
+// ── Helpers ────────────────────────────────────────────────────
+function initials(u){ return ((u.firstName||'')[0]||'')+(u.lastName||'')[0]||u.username[0]; }
+function roleBadge(r){
+  if(r==='admin')   return '<span class="badge badge-admin">👑 Админ</span>';
+  if(r==='moderator') return '<span class="badge badge-mod">🛡️ Модер</span>';
+  return '<span class="badge badge-user">👤 Юзер</span>';
+}
+function statusBadge(a){ return a ? '<span class="badge badge-active">● Активен</span>' : '<span class="badge badge-inactive">○ Неактивен</span>'; }
+function fmtDate(d){ if(!d) return '<span style="color:var(--muted)">—</span>'; const dd=new Date(d); return dd.toLocaleDateString('ru'); }
+function fmtDateTime(d){ if(!d) return '<span style="color:var(--muted)">—</span>'; return new Date(d).toLocaleString('ru',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}); }
+function age(d){ if(!d) return null; const t=new Date(),b=new Date(d); let a=t.getFullYear()-b.getFullYear(); if(t.getMonth()-b.getMonth()<0||(t.getMonth()-b.getMonth()===0&&t.getDate()<b.getDate()))a--; return a; }
+
+// ── Filtering & sorting ────────────────────────────────────────
+function filteredUsers(){
+  let list = users.filter(u => {
+    if(currentFilter==='active')    return u.isActive;
+    if(currentFilter==='inactive')  return !u.isActive;
+    if(currentFilter==='admin')     return u.role==='admin';
+    if(currentFilter==='moderator') return u.role==='moderator';
+    return true;
+  });
+  if(currentSearch){
+    const q = currentSearch.toLowerCase();
+    list = list.filter(u =>
+      (u.username+u.email+(u.firstName||'')+(u.lastName||'')+(u.address?.city||'')).toLowerCase().includes(q)
+    );
+  }
+  const [field,dir] = (document.getElementById('sortSelect')?.value||'createdAt-desc').split('-');
+  list.sort((a,b)=>{
+    let av=a[field]||'', bv=b[field]||'';
+    if(av instanceof Date||bv instanceof Date){ av=new Date(av).getTime(); bv=new Date(bv).getTime(); }
+    if(dir==='asc') return av>bv?1:-1; return av<bv?1:-1;
+  });
+  return list;
+}
+
+// ── Table rendering ────────────────────────────────────────────
+function renderTable(){
+  const list = filteredUsers();
+  const total = list.length;
+  const pages = Math.max(1, Math.ceil(total/PER_PAGE));
+  if(currentPage > pages) currentPage = pages;
+  const start = (currentPage-1)*PER_PAGE;
+  const slice = list.slice(start, start+PER_PAGE);
+
+  const tbody = document.getElementById('mainTbody');
+  tbody.innerHTML = slice.map(u => `
+    <tr>
+      <td>
+        <div class="user-cell">
+          <div class="avatar">${initials(u).toUpperCase()}</div>
+          <div>
+            <div class="user-name">${u.lastName||''} ${u.firstName||''}</div>
+            <div class="user-email">${u.email}</div>
+          </div>
+        </div>
+      </td>
+      <td>${roleBadge(u.role)}</td>
+      <td>${statusBadge(u.isActive)}</td>
+      <td style="color:var(--muted);font-size:12px">${u.phone||'—'}</td>
+      <td style="font-size:12px">${u.address?.city||'—'}</td>
+      <td style="font-size:12px">${fmtDateTime(u.lastLogin)}</td>
+      <td style="font-size:12px">${fmtDate(u.createdAt)}</td>
+      <td>
+        <div class="actions">
+          <button class="icon-btn" title="Профиль" onclick="openDrawer('${u._id}')">👁</button>
+          <button class="icon-btn" title="Редактировать" onclick="openEditModal('${u._id}')">✏️</button>
+          <button class="icon-btn del" title="Удалить" onclick="deleteUser('${u._id}')">🗑</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+
+  document.getElementById('pageInfo').textContent = `${start+1}–${Math.min(start+PER_PAGE,total)} из ${total}`;
+
+  const pb = document.getElementById('pageBtns');
+  pb.innerHTML = '';
+  const addBtn = (label, page, active=false, disabled=false) => {
+    const b = document.createElement('button');
+    b.className = 'page-btn' + (active?' active':'');
+    b.textContent = label; b.disabled = disabled;
+    b.onclick = () => { currentPage = page; renderTable(); };
+    pb.appendChild(b);
+  };
+  addBtn('‹', currentPage-1, false, currentPage===1);
+  const maxPages = Math.min(pages, 5);
+  let startPage = Math.max(1, currentPage-2);
+  let endPage = Math.min(pages, startPage+maxPages-1);
+  if(endPage-startPage < maxPages-1) startPage = Math.max(1, endPage-maxPages+1);
+  for(let p=startPage; p<=endPage; p++) addBtn(p, p, p===currentPage);
+  addBtn('›', currentPage+1, false, currentPage===pages);
+}
+
+// ── Recent table (dashboard) ────────────────────────────────────
+function renderRecent(){
+  const recent = [...users].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).slice(0,5);
+  document.getElementById('recentTable').innerHTML = `
+    <thead><tr><th>Пользователь</th><th>Роль</th><th>Статус</th><th>Дата</th></tr></thead>
+    <tbody>${recent.map(u=>`
+      <tr>
+        <td><div class="user-cell">
+          <div class="avatar" style="width:30px;height:30px;font-size:11px">${initials(u).toUpperCase()}</div>
+          <div><div class="user-name">${u.lastName||''} ${u.firstName||''}</div><div class="user-email">${u.email}</div></div>
+        </div></td>
+        <td>${roleBadge(u.role)}</td>
+        <td>${statusBadge(u.isActive)}</td>
+        <td style="font-size:12px;color:var(--muted)">${fmtDate(u.createdAt)}</td>
+      </tr>`).join('')}
+    </tbody>`;
+}
+
+// ── Stats ──────────────────────────────────────────────────────
+function renderStats(){
+  document.getElementById('st-total').textContent   = users.length;
+  document.getElementById('st-active').textContent  = users.filter(u=>u.isActive).length;
+  document.getElementById('st-admins').textContent  = users.filter(u=>u.role==='admin').length;
+  document.getElementById('st-verified').textContent= users.filter(u=>u.isEmailVerified).length;
+  document.getElementById('st-total-d').textContent  = '▲ +' + users.filter(u=>new Date(u.createdAt)>new Date(Date.now()-30*86400000)).length + ' за 30 дней';
+  const active = users.filter(u=>u.isActive).length;
+  document.getElementById('st-active-d').textContent = Math.round(active/users.length*100)+'% от общего числа';
+  // Analytics
+  const cities = [...new Set(users.map(u=>u.address?.city).filter(Boolean))];
+  document.getElementById('an-cities').textContent = cities.length;
+  const thisMonth = users.filter(u=>{ const d=new Date(u.createdAt); const n=new Date(); return d.getMonth()===n.getMonth()&&d.getFullYear()===n.getFullYear(); }).length;
+  document.getElementById('an-thismonth').textContent = thisMonth;
+  const ages = users.map(u=>age(u.dateOfBirth)).filter(Boolean);
+  document.getElementById('an-avgage').textContent = ages.length ? Math.round(ages.reduce((a,b)=>a+b,0)/ages.length) : '—';
+}
+
+// ── Bar chart ──────────────────────────────────────────────────
+function renderBarChart(){
+  const now = new Date();
+  const months = [];
+  for(let i=5;i>=0;i--){
+    const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+    months.push({ label: d.toLocaleString('ru',{month:'short'}), count: 0, key: `${d.getFullYear()}-${d.getMonth()}` });
+  }
+  users.forEach(u=>{
+    const d = new Date(u.createdAt);
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    const m = months.find(m=>m.key===key);
+    if(m) m.count++;
+  });
+  const max = Math.max(...months.map(m=>m.count), 1);
+  const COLORS = ['#4f8ef7','#6ba4fa','#7c5cbf','#9b7de8','#4f8ef7','#22c55e'];
+  document.getElementById('barChart').innerHTML = months.map((m,i)=>`
+    <div class="bar-col">
+      <div style="color:var(--muted);font-size:11px;margin-bottom:4px">${m.count}</div>
+      <div class="bar" style="height:${Math.max(8,Math.round(m.count/max*120))}px;background:${COLORS[i]}" title="${m.label}: ${m.count}"></div>
+      <div class="bar-label">${m.label}</div>
+    </div>`).join('');
+}
+
+// ── Donut chart ────────────────────────────────────────────────
+function renderDonut(svgId, legendId, data){
+  const total = data.reduce((a,b)=>a+b.value,0)||1;
+  const cx=60,cy=60,r=44,stroke=18;
+  let offset=0;
+  const segments = data.map(d=>{
+    const pct = d.value/total;
+    const dash = pct*2*Math.PI*r;
+    const gap  = (1-pct)*2*Math.PI*r;
+    const seg  = { ...d, dash, gap, offset };
+    offset += dash;
+    return seg;
+  });
+  document.getElementById(svgId).innerHTML = `
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--surface2)" stroke-width="${stroke}" />
+    ${segments.map(s=>`
+      <circle cx="${cx}" cy="${cy}" r="${r}" fill="none"
+        stroke="${s.color}" stroke-width="${stroke}"
+        stroke-dasharray="${s.dash} ${s.gap}"
+        stroke-dashoffset="${-s.offset + 2*Math.PI*r*0.25}"
+        transform="rotate(-90 ${cx} ${cy})" />`).join('')}
+    <text x="${cx}" y="${cy}" text-anchor="middle" dy=".35em" fill="var(--text)" font-size="20" font-weight="700">${total}</text>`;
+  document.getElementById(legendId).innerHTML = data.map(d=>`
+    <div class="legend-item">
+      <div class="legend-dot" style="background:${d.color}"></div>
+      <div><b>${d.value}</b> ${d.label}</div>
+    </div>`).join('');
+}
+
+function renderCharts(){
+  renderBarChart();
+  const roles = [
+    { label:'Юзеры',   value: users.filter(u=>u.role==='user').length,       color:'#4f8ef7' },
+    { label:'Модеры',  value: users.filter(u=>u.role==='moderator').length,   color:'#f59e0b' },
+    { label:'Админы',  value: users.filter(u=>u.role==='admin').length,       color:'#7c5cbf' },
+  ];
+  renderDonut('donutSvg','donutLegend',roles);
+  const emailVer = [
+    { label:'Подтверждён',   value: users.filter(u=>u.isEmailVerified).length,  color:'#22c55e' },
+    { label:'Не подтверждён',value: users.filter(u=>!u.isEmailVerified).length, color:'#ef4444' },
+  ];
+  renderDonut('emailDonut','emailLegend',emailVer);
+
+  // City bars
+  const cityMap = {};
+  users.forEach(u=>{ const c=u.address?.city; if(c){ cityMap[c]=(cityMap[c]||0)+1; } });
+  const cityEntries = Object.entries(cityMap).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const cmax = cityEntries[0]?.[1]||1;
+  document.getElementById('cityBars').innerHTML = cityEntries.map(([city,cnt])=>`
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <div style="width:110px;font-size:12px;text-align:right;color:var(--muted)">${city}</div>
+      <div style="flex:1;height:18px;border-radius:4px;background:var(--surface2)">
+        <div style="height:100%;border-radius:4px;background:var(--accent);width:${Math.round(cnt/cmax*100)}%;transition:width .4s"></div>
+      </div>
+      <div style="width:30px;font-size:12px;font-weight:600">${cnt}</div>
+    </div>`).join('');
+}
+
+// ── CRUD ───────────────────────────────────────────────────────
+function deleteUser(id){
+  if(!confirm('Удалить пользователя?')) return;
+  users = users.filter(u=>u._id!==id);
+  renderAll();
+  toast('🗑️ Пользователь удалён','success');
+}
+
+function openAddModal(){
+  editingId = null;
+  document.getElementById('modalTitle').textContent = '✨ Новый пользователь';
+  ['firstName','lastName','middleName','username','email','password','phone','dob','country','city','street','building'].forEach(f=>{
+    const el = document.getElementById('f-'+f);
+    if(el) el.value = '';
+  });
+  document.getElementById('f-role').value = 'user';
+  document.getElementById('f-isActive').value = 'true';
+  document.getElementById('modalOverlay').classList.add('show');
+}
+
+function openEditModal(id){
+  const u = users.find(x=>x._id===id);
+  if(!u) return;
+  editingId = id;
+  document.getElementById('modalTitle').textContent = '✏️ Редактирование';
+  document.getElementById('f-firstName').value = u.firstName||'';
+  document.getElementById('f-lastName').value  = u.lastName||'';
+  document.getElementById('f-middleName').value= u.middleName||'';
+  document.getElementById('f-username').value  = u.username||'';
+  document.getElementById('f-email').value     = u.email||'';
+  document.getElementById('f-password').value  = '';
+  document.getElementById('f-phone').value     = u.phone||'';
+  document.getElementById('f-dob').value       = u.dateOfBirth ? new Date(u.dateOfBirth).toISOString().slice(0,10) : '';
+  document.getElementById('f-role').value      = u.role||'user';
+  document.getElementById('f-isActive').value  = String(u.isActive);
+  document.getElementById('f-country').value   = u.address?.country||'';
+  document.getElementById('f-city').value      = u.address?.city||'';
+  document.getElementById('f-street').value    = u.address?.street||'';
+  document.getElementById('f-building').value  = u.address?.building||'';
+  document.getElementById('modalOverlay').classList.add('show');
+}
+
+function closeModal(){ document.getElementById('modalOverlay').classList.remove('show'); }
+
+function saveUser(){
+  const username  = document.getElementById('f-username').value.trim();
+  const email     = document.getElementById('f-email').value.trim();
+  const password  = document.getElementById('f-password').value;
+  if(!username || !email){ toast('⚠️ Username и Email обязательны','error'); return; }
+  if(!editingId && !password){ toast('⚠️ Пароль обязателен','error'); return; }
+
+  const data = {
+    username, email,
+    firstName:  document.getElementById('f-firstName').value.trim(),
+    lastName:   document.getElementById('f-lastName').value.trim(),
+    middleName: document.getElementById('f-middleName').value.trim(),
+    phone:      document.getElementById('f-phone').value.trim(),
+    dateOfBirth:document.getElementById('f-dob').value ? new Date(document.getElementById('f-dob').value) : null,
+    role:       document.getElementById('f-role').value,
+    isActive:   document.getElementById('f-isActive').value === 'true',
+    address: {
+      country:  document.getElementById('f-country').value.trim(),
+      city:     document.getElementById('f-city').value.trim(),
+      street:   document.getElementById('f-street').value.trim(),
+      building: document.getElementById('f-building').value.trim(),
+    },
+  };
+
+  if(editingId){
+    const idx = users.findIndex(u=>u._id===editingId);
+    if(idx>=0){ users[idx] = { ...users[idx], ...data, updatedAt: new Date() }; }
+    toast('✅ Пользователь обновлён','success');
+  } else {
+    users.unshift({ _id: genId(), ...data, isEmailVerified: false, lastLogin: null, createdAt: new Date(), updatedAt: new Date() });
+    toast('✅ Пользователь создан','success');
+  }
+  closeModal();
+  renderAll();
+}
+
+// ── Drawer (profile) ──────────────────────────────────────────
+function openDrawer(id){
+  const u = users.find(x=>x._id===id);
+  if(!u) return;
+  const a = age(u.dateOfBirth);
+  document.getElementById('drawerContent').innerHTML = `
+    <div class="profile-avatar">${initials(u).toUpperCase()}</div>
+    <div class="profile-name">${u.lastName||''} ${u.firstName||''} ${u.middleName||''}</div>
+    <div class="profile-email">${u.email}</div>
+    <div class="profile-badges">
+      ${roleBadge(u.role)} ${statusBadge(u.isActive)}
+      ${u.isEmailVerified ? '<span class="badge" style="background:rgba(34,197,94,.15);color:#4ade80">📧 Верифицирован</span>' : ''}
+    </div>
+
+    <div class="profile-section">
+      <div class="profile-section-title">Идентификация</div>
+      <div class="profile-row"><span class="key">@username</span><span>${u.username}</span></div>
+      <div class="profile-row"><span class="key">ID</span><span style="font-size:11px;font-family:monospace">${u._id}</span></div>
+    </div>
+
+    <div class="profile-section">
+      <div class="profile-section-title">Персональные данные</div>
+      <div class="profile-row"><span class="key">Телефон</span><span>${u.phone||'—'}</span></div>
+      <div class="profile-row"><span class="key">Дата рождения</span><span>${u.dateOfBirth ? new Date(u.dateOfBirth).toLocaleDateString('ru') : '—'}</span></div>
+      <div class="profile-row"><span class="key">Возраст</span><span>${a!=null ? a+' лет' : '—'}</span></div>
+    </div>
+
+    <div class="profile-section">
+      <div class="profile-section-title">Адрес</div>
+      <div class="profile-row"><span class="key">Страна</span><span>${u.address?.country||'—'}</span></div>
+      <div class="profile-row"><span class="key">Город</span><span>${u.address?.city||'—'}</span></div>
+      <div class="profile-row"><span class="key">Улица</span><span>${u.address?.street||'—'} ${u.address?.building||''}</span></div>
+    </div>
+
+    <div class="profile-section">
+      <div class="profile-section-title">Системные данные</div>
+      <div class="profile-row"><span class="key">Последний вход</span><span>${fmtDateTime(u.lastLogin)}</span></div>
+      <div class="profile-row"><span class="key">Создан</span><span>${fmtDateTime(u.createdAt)}</span></div>
+      <div class="profile-row"><span class="key">Обновлён</span><span>${fmtDateTime(u.updatedAt)}</span></div>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-top:20px">
+      <button class="btn btn-primary" style="flex:1" onclick="openEditModal('${u._id}');closeDrawer()">✏️ Редактировать</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteUser('${u._id}');closeDrawer()">🗑</button>
+    </div>`;
+  document.getElementById('profileDrawer').classList.add('open');
+}
+function closeDrawer(){ document.getElementById('profileDrawer').classList.remove('open'); }
+
+// ── Toasts ─────────────────────────────────────────────────────
+function toast(msg, type='success'){
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  document.getElementById('toasts').appendChild(t);
+  setTimeout(()=>t.remove(), 3000);
+}
+
+// ── Views ──────────────────────────────────────────────────────
+const VIEW_TITLES = { dashboard:'📊 Дашборд', users:'👥 Пользователи', analytics:'📈 Аналитика', settings:'⚙️ Настройки' };
+function switchView(view){
+  ['dashboard','users','analytics','settings'].forEach(v=>{
+    document.getElementById('view-'+v).style.display = v===view ? '' : 'none';
+  });
+  document.querySelectorAll('.nav-item').forEach(el=>{
+    el.classList.toggle('active', el.dataset.view===view);
+  });
+  document.getElementById('viewTitle').textContent = VIEW_TITLES[view]||'';
+  if(view==='users') renderTable();
+}
+document.querySelectorAll('.nav-item').forEach(el=>{
+  el.addEventListener('click',()=>switchView(el.dataset.view));
+});
+
+// ── Filter & search ────────────────────────────────────────────
+function setFilter(f, btn){
+  currentFilter = f; currentPage = 1;
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTable();
+}
+document.getElementById('globalSearch').addEventListener('input', e=>{
+  currentSearch = e.target.value;
+  currentPage = 1;
+  const isUsersView = document.getElementById('view-users').style.display !== 'none';
+  if(!isUsersView) switchView('users');
+  else renderTable();
+});
+
+// ── Main render ────────────────────────────────────────────────
+function renderAll(){
+  renderStats();
+  renderCharts();
+  renderRecent();
+  renderTable();
+}
+
+renderAll();
+</script>
+</body>
+</html>
